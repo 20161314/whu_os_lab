@@ -17,7 +17,7 @@
 // 发送一个字符 [cite: 90]
 void uart_putc(char c) {
     // 等待发送寄存器为空 [cite: 86]
-    while ((*UART_LSR & LSR_THRE) == 0);
+    while ((*UART_LSR & LSR_THRE) == 0);  // 0是忙，1是有空
     //一直进行轮询，直到空闲时发送
     *UART_THR = c;//将字符写入发送寄存器
 }
@@ -28,3 +28,7 @@ void uart_puts(char *s) {
         uart_putc(*s++);
     }
 }
+
+
+// 硬件会将THR的内容形成串形比特流，从引脚发送到屏幕上
+// THRE决定能否发送到发送寄存器
