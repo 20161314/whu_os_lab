@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "RISC-V OS Kernel",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/riscv64-unknown-elf-gcc", // 请根据你的实际路径修改
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                "-nostdlib",
+                "-ffreestanding"
+            ]
+        }
+    ],
+    "version": 4
+}
