@@ -1,6 +1,7 @@
 /* 实验手册任务4: 编写链接脚本 */
-OUTPUT_ARCH(riscv)
-ENTRY(_start) /* 作用是设置程序入口点为 _start 符号 */
+OUTPUT_ARCH(riscv)     # 指定输出架构为RISC-V
+ENTRY(_start)          # 设置程序入口点为_start符号
+
 
 /* 新增：定义程序头 (Program Headers) 来分离权限 */
 PHDRS
