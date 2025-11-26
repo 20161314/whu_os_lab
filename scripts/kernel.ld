@@ -10,20 +10,20 @@ SECTIONS
 
     .text : {
         *(.text .text.*)
-    } 
+        . = ALIGN(0x1000);
+        PROVIDE(etext = .);
+        PROVIDE(KERNEL_DATA = .);
+    } /* 修改：将 .text section 映射到 text program header */
 
     .rodata : {
         . = ALIGN(16);
         *(.rodata .rodata.*)
-    } 
-
-    /* 定义 etext, edata, end 等符号供代码使用 [cite: 35] */
-    PROVIDE(etext = .);
+    } /* 修改：将 .rodata section 也映射到 text program header */    
 
     .data : {
         . = ALIGN(16);
         *(.data .data.*)
-    } 
+    } /* 修改：将 .data section 映射到 data program header */
 
     .bss : {
         . = ALIGN(16);
@@ -31,7 +31,12 @@ SECTIONS
         *(.bss .bss.*)
         *(.sbss .sbss.*)
         PROVIDE(bss_end = .);
-    } 
+    }/* 修改：将 .bss section 也映射到 data program header */
+
 
     PROVIDE(end = .);
+
+    /* 对齐到页边界，并定义 ALLOC_BEGIN */
+    . = ALIGN(0x1000);
+    PROVIDE(ALLOC_BEGIN = .);
 }

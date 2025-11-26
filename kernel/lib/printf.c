@@ -1,4 +1,4 @@
-#include <console.h>
+#include "dev/console.h"
 
 // 静态辅助函数声明
 static void printint(long long xx, int base, int sign);
@@ -107,4 +107,15 @@ void clear_screen(void) {
     // [H 表示将光标移动到左上角
     uart_puts("\033[H");
     printf("Screen cleared!\n");
+}
+
+void panic(const char* warning){
+    printf(warning);
+    while(1){};
+}
+
+void assert(bool condition, const char* warning){
+    if(!condition){
+        panic(warning);
+    }
 }

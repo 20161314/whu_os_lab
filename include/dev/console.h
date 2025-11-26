@@ -2,8 +2,12 @@
 //各个文件里的函数声明集中。
 // --- printf.c ---
 #include <stdarg.h>
+#include "common.h"
+
 void printf(const char *fmt, ...);
 void clear_screen(void);
+void panic(const char* warning);
+void assert(bool condition, const char* warning);
 
 // --- console.c ---
 void consputc(char c);
