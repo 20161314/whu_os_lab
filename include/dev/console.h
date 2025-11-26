@@ -13,5 +13,7 @@ void assert(bool condition, const char* warning);
 void consputc(char c);
 
 // --- uart.c ---
+void uart_init(void);
+void uart_intr(void);
 void uart_putc(char c);
 void uart_puts(char *s);

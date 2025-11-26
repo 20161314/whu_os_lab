@@ -1,25 +1,86 @@
 /* 实验手册任务5: 实现串口驱动 */
 
-// QEMU virt 机器的 UART 基地址 [cite: 18, 110]
-#define UART_BASE 0x10000000L
-// 这里相当于接口的相关知识，告诉我们接口的地址和寄存器
+#include "memlayout.h"
+#include "lib/lock.h"
 
-// THR: Transmit Holding Register (发送寄存器) [cite: 83]
-#define UART_THR (unsigned char *)(UART_BASE + 0x00)
-// THR代表发送保持寄存器，它位于基址偏移0x00处
-// LSR: Line Status Register (线路状态寄存器) [cite: 84]
-#define UART_LSR (unsigned char *)(UART_BASE + 0x05)
-//LSR代表线路状态寄存器，它位于基址偏移0x05处
-// LSR 的第5位 (bit 5) 是 THRE (Transmitter Holding Register Empty)
-// 当它为1时，表示发送寄存器为空，可以写入下一个字符 [cite: 86]
-#define LSR_THRE (1 << 5)//用于比较的一个值用来看能不能进行发送
-//代表发射寄存器为空，可以接受并发送下一个字符。
+// 这里相当于接口的相关知识，告诉我们接口的地址和寄存器
+#define RHR 0                 // receive holding register (for input bytes)
+#define THR 0                 // transmit holding register (for output bytes)
+#define IER 1                 // interrupt enable register
+#define IER_TX_ENABLE (1<<0)
+#define IER_RX_ENABLE (1<<1)
+#define FCR 2                 // FIFO control register
+#define FCR_FIFO_ENABLE (1<<0)
+#define FCR_FIFO_CLEAR (3<<1) // clear the content of the two FIFOs
+#define ISR 2                 // interrupt status register
+#define LCR 3                 // line control register
+#define LCR_EIGHT_BITS (3<<0)
+#define LCR_BAUD_LATCH (1<<7) // special mode to set baud rate
+#define LSR 5                 // line status register
+#define LSR_RX_READY (1<<0)   // input is waiting to be read from RHR
+#define LSR_TX_IDLE (1<<5)    // THR can accept another character to send
+
+// 读写寄存器的宏定义
+#define Reg(reg)         ((volatile unsigned char *)(UART_BASE + reg))
+#define ReadReg(reg)     (*(Reg(reg)))
+#define WriteReg(reg, v) (*(Reg(reg)) = (v))
+
+// uart 初始化
+void uart_init(void)
+{
+  // 关闭中断
+  WriteReg(IER, 0x00);
+
+  // 进入设置比特率的模式
+  WriteReg(LCR, LCR_BAUD_LATCH);
+
+  // 设置比特率的低位和高位，最终设置为38.4K
+  WriteReg(0, 0x03);
+  WriteReg(1, 0x00);
+
+  // 设置传输字节长度为8bit,不校验
+  WriteReg(LCR, LCR_EIGHT_BITS);
+
+  // 清零和使能FIFO模式
+  WriteReg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
+
+  // 使能输出队列和接收队列的中断
+  WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
+}
+
 // 发送一个字符 [cite: 90]
-void uart_putc(char c) {
-    // 等待发送寄存器为空 [cite: 86]
-    while ((*UART_LSR & LSR_THRE) == 0);
-    //一直进行轮询，直到空闲时发送
-    *UART_THR = c;//将字符写入发送寄存器
+// 单个字符输出
+void uart_putc(char c)
+{
+  push_off();
+
+  // 等待TX队列进入idle状态
+  while((ReadReg(LSR) & LSR_TX_IDLE) == 0);
+  
+  // 输出
+  WriteReg(THR, c);
+
+  pop_off();
+}
+
+int uart_getc(void)
+{
+  if(ReadReg(LSR) & 0x01){
+    return ReadReg(RHR);
+  } else {
+    return -1;
+  }
+}
+
+// 中断处理(键盘输入->屏幕输出)
+void uart_intr(void)
+{
+  while(1)
+  {
+    int c = uart_getc();
+    if(c == -1) break;
+    uart_putc(c);
+  }
 }
 
 // 发送一个以 '\0' 结尾的字符串 [cite: 92]

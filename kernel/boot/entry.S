@@ -22,7 +22,7 @@ _start:
 .L_bss_done:
 
     # 任务3.4: 跳转到C主函数
-    call main
+    call start
 
     # 防止程序意外退出，进入死循环
 halt:
