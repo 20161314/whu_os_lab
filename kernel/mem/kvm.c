@@ -2,6 +2,7 @@
 #include "lib/str.h"
 #include "mem/pmem.h"
 #include "mem/vmem.h"
+#include "proc/proc.h"
 #include "common.h"
 #include "memlayout.h"
 #include "riscv.h"
@@ -9,6 +10,8 @@
 pgtbl_t kernel_pagetable; // 页表
 
 extern char etext[]; // kernel.ld设置的etext段
+
+extern char trampoline[]; // trampoline.S
 
 void vm_print_helper(pgtbl_t pgtbl, int level){
     for(int i=0; i<512; i++){
@@ -107,6 +110,12 @@ pgtbl_t kvm_create(){
 
     // 内核数据区KERNEL_DATA
     vm_mappages(kpgtbl, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+
+    // trampoline，用于trap中虚拟地址的映射
+    vm_mappages(kpgtbl, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+
+    // 为每个进程创建一个栈
+    proc_mapstacks(kpgtbl);
 
     return kpgtbl;
 }

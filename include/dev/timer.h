@@ -14,6 +14,8 @@ typedef struct timer {
 
 void   timer_init();       // 时钟初始化(in M-mode)
 
+timer_t* timer_get();
+
 void   timer_create();     // 时钟创建
 void   timer_update();     // 时钟更新(ticks++)
 uint64 timer_get_ticks();  // 获取时钟的tick

@@ -2,12 +2,12 @@
 #include "dev/timer.h"
 #include "dev/plic.h"
 #include "trap/trap.h"
-#include "proc/proc.h"
+#include "proc/cpu.h"
 #include "memlayout.h"
 #include "riscv.h"
 
 // 中断信息
-static char* interrupt_info[16] = {
+char* interrupt_info[16] = {
     "U-mode software interrupt",      // 0
     "S-mode software interrupt",      // 1
     "reserved-1",                     // 2
@@ -27,7 +27,7 @@ static char* interrupt_info[16] = {
 };
 
 // 异常信息
-static char* exception_info[16] = {
+char* exception_info[16] = {
     "Instruction address misaligned", // 0
     "Instruction access fault",       // 1
     "Illegal instruction",            // 2
@@ -97,6 +97,7 @@ void timer_interrupt_handler()
 
     if(mycpuid() == 0){
         timer_update();
+        proc_wakeup(&timer_get()->ticks);
     }
     // 通过清除SSIP位，承认软件中断
     w_sip(r_sip() & ~2);
@@ -124,6 +125,8 @@ void trap_kernel_handler()
         switch(trap_id){
             case 1:
                 timer_interrupt_handler();
+                if(myproc() != 0 && myproc()->state == RUNNING)
+                    proc_yield();
                 break;
             case 9:
                 external_interrupt_handler();
@@ -144,4 +147,9 @@ void trap_kernel_handler()
         printf("sepc=%p stval=%p\n", sepc, stval);
         panic("kerneltrap: Exception\n");
     }
+
+    // yield() 可能已经导致了一些陷阱的发生
+    // 所以为了kernelvec.S的sepc指令使用，需要恢复陷阱寄存器。
+    w_sepc(sepc);
+    w_sstatus(sstatus);
 }

@@ -16,14 +16,17 @@ void main()
     pmem_init();
     kvm_init();
     kvm_inithart();
+    proc_init();
     trap_kernel_init();
     trap_kernel_inithart();
     plic_init();
     plic_inithart();
+    // 第一个用户进程，将会切换到initcode中的地址，测试时不启用
+    proc_make_first(); 
 
     printf("Hello OS\n");
 
-    intr_on();
+    proc_scheduler();
 
     while(1);
 }

@@ -31,4 +31,9 @@
 #define CLINT_MTIMECMP(hartid) (CLINT_BASE + 0x4000 + 8 * (hartid))
 #define CLINT_MTIME (CLINT_BASE + 0xBFF8)
 
+// 为了进程从而需要准备的定义
+#define TRAMPOLINE (MAXVA - PGSIZE)
+#define TRAPFRAME (TRAMPOLINE - PGSIZE)
+#define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
+
 #endif

@@ -1,6 +1,6 @@
 #include "lib/lock.h"
 #include "dev/console.h"
-#include "proc/proc.h"
+#include "proc/cpu.h"
 #include "riscv.h"
 
 // 带层数叠加的关中断
