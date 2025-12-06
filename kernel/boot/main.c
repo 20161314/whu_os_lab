@@ -27,6 +27,4 @@ void main()
     printf("Hello OS\n");
 
     proc_scheduler();
-
-    while(1);
 }
