@@ -45,6 +45,22 @@ pte_t* vm_getpte(pgtbl_t pgtbl, uint64 va, bool alloc){
   return &pgtbl[PX(va, 0)];
 }
 
+// 同xv6中的walkaddr，返回虚拟地址在页表中对应的物理地址
+// 如果没有映射或不可用，返回0
+// 仅能用于查看用户页
+uint64 vm_getpa(pgtbl_t pgtbl, uint64 va){
+    if(va >= MAXVA) return 0;
+
+    pte_t* pte = vm_getpte(pgtbl, va, 0);
+    if(pte == 0)
+        return 0;
+    else if((*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+        return 0;
+    
+    uint64 pa = PTE2PA(*pte);
+    return pa;
+}
+
 void   vm_mappages(pgtbl_t pgtbl, uint64 va, uint64 pa, uint64 len, int perm){
     uint64 a, last;
     pte_t *pte;

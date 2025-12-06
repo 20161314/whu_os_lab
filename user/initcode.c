@@ -65,6 +65,7 @@ int main()
         else
             syscall(SYS_print, "parent: error\n");
     }
+    
 
     // 测试进程的杀死
     syscall(SYS_print, "\nTesting Killing:\n");
@@ -107,9 +108,9 @@ int main()
         syscall(SYS_sleep, 0);
         syscall(SYS_getpid);
         
-        //char* c = (i % 10000 == 0) ? "#" : "";
-        //syscall(SYS_print, c);
-        syscall(SYS_print, ".");
+        char* c = (i % 10000 == 0) ? "#" : "";
+        syscall(SYS_print, c);
+        // syscall(SYS_print, ".");
     }
     syscall(SYS_print, "\nFast syscall test succeed.\n");
 

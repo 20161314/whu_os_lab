@@ -42,12 +42,11 @@ userinit: $(INITCODE_H)
 
 $(INITCODE_H): $(USER_INITCODE).c
 	@echo "user code compiling..."
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I . -march=rv64g -nostdinc -c $(USER_INITCODE).c -o $(USER_INITCODE).o
-	$(LD) -N -e start -Ttext 0 -o $(USER_INITCODE).out $(USER_INITCODE).o
+	$(CC) $(CFLAGS) -march=rv64g -nostdinc -Os -c $(USER_INITCODE).c -o $(USER_INITCODE).o
+	$(LD) -N -e main -Ttext 0 -o $(USER_INITCODE).out $(USER_INITCODE).o
 	$(OBJCOPY) -S -O binary $(USER_INITCODE).out $(USER_INITCODE)
-	xxd -i $(USER_INITCODE) > $@
-	rm -f $(USER_INITCODE) $(USER_INITCODE).o $(USER_INITCODE).out
+	xxd -i $(USER_INITCODE) > ./include/proc/initcode.h
+	rm -f $(USER_INITCODE) $(USER_INITCODE).o $(USER_INITCODE).out $(USER_INITCODE).d
 
 $(TARGET_ELF): $(OBJECTS)
 	$(LD) $(LDFLAGS) -o $@ $^

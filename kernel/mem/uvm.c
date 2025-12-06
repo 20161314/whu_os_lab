@@ -115,7 +115,7 @@ void uvm_copyin(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
 
     while(len > 0){
         va0 = PG_ROUND_DOWN(src);
-        pa0 = PX(pgtbl, va0);
+        pa0 = vm_getpa(pgtbl, va0);
         if(pa0 == 0) return;
         n = PGSIZE - (src - va0);
         if(n > len)
@@ -135,7 +135,7 @@ void uvm_copyout(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
 
     while(len > 0){
         va0 = PG_ROUND_DOWN(dst);
-        pa0 = PX(pgtbl, va0);
+        pa0 = vm_getpa(pgtbl, va0);
         if(pa0 == 0) return;
         n = PGSIZE - (dst - va0);
         if(n > len)
@@ -158,7 +158,7 @@ void uvm_copyin_str(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 maxlen)
 
     while(got_null == 0 && maxlen > 0){
         va0 = PG_ROUND_DOWN(src);
-        pa0 = PX(pgtbl, va0);
+        pa0 = vm_getpa(pgtbl, va0);
         if(pa0 == 0) return;
         n = PGSIZE - (src - va0);
         if(n > maxlen) n = maxlen;
