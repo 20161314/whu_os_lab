@@ -16,6 +16,8 @@ typedef unsigned long long     uint64;
 typedef unsigned long long         reg; 
 typedef enum {false = 0, true = 1} bool;
 
+typedef void* addr_t;
+
 #ifndef NULL
 #define NULL ((void*)0)
 #endif

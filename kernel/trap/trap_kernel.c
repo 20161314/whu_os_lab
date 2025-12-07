@@ -74,7 +74,7 @@ void external_interrupt_handler()
         case UART_IRQ:
             uart_intr();
             break;
-        case VIRTIO0_IRQ:
+        case VIRTIO_BASE_IRQ:
             // virtio_disk_intr();
             break;
         default:

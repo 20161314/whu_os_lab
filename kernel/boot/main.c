@@ -7,6 +7,8 @@
 #include "mem/pmem.h"
 #include "mem/vmem.h"
 #include "trap/trap.h"
+#include "fs/fs.h"
+#include "fs/file.h"
 
 void main()
 {
@@ -21,10 +23,18 @@ void main()
     trap_kernel_inithart();
     plic_init();
     plic_inithart();
-    // 第一个用户进程，将会切换到initcode中的地址，测试时不启用
-    proc_make_first(); 
-
+    
+    // 初始化文件系统
+    printf("About to call fs_init...\n");
+    fs_init(ROOTDEV);
+    printf("fs_init returned.\n");
+    
+    // 初始化文件表
+    file_init();
+    printf("File system initialized.\n");
     printf("Hello OS\n");
+
+    proc_make_first();
 
     proc_scheduler();
 }

@@ -3,6 +3,8 @@
 #include "lib/lock.h"
 #include "mem/pmem.h"
 #include "mem/vmem.h"
+#include "fs/fs.h"
+#include "fs/file.h"
 #include "proc/cpu.h"
 #include "proc/initcode.h"
 #include "memlayout.h"
@@ -232,15 +234,37 @@ void proc_make_first()
                 PTE_R | PTE_W | PTE_U);
     
     // data + code 映射
+
+    // 在这里尝试多page映射以摆脱限制...
+    proczero->ustack_pages = 0;
+    for(uint64 addr = 0; addr < user_initcode_len; addr += PGSIZE)
+    {
+        char *mem = (char *)pmem_alloc();
+        if (mem == NULL) {
+            // 处理分配失败
+            panic("proc_make_first: pmem_alloc failed");
+        }
+
+        memset(mem, 0, PGSIZE);
+
+        uint64 remaining = user_initcode_len - addr;
+        uint64 copy_size = (remaining > PGSIZE) ? PGSIZE : remaining;
+
+        vm_mappages(proczero->pgtbl, addr, (uint64)mem, PGSIZE, PTE_W|PTE_R|PTE_X|PTE_U);
+        memmove(mem, user_initcode + addr, copy_size);
+        proczero->ustack_pages++;
+    }
+
+    /*
     assert(user_initcode_len <= PGSIZE, "proc_make_first: user_initcode too big\n");
     char *mem = (char *)pmem_alloc();
     memset(mem, 0, PGSIZE);
     vm_mappages(proczero->pgtbl, 0, (uint64)mem, PGSIZE, PTE_W|PTE_R|PTE_X|PTE_U);
     memmove(mem, user_initcode, user_initcode_len);
-    proczero->ustack_pages = 1;
+    proczero->ustack_pages = 1;*/
 
     // 设置 heap_top
-    proczero->heap_top = PGSIZE;
+    proczero->heap_top = proczero->ustack_pages * PGSIZE;
 
     // 设置用户态返回时的关键寄存器
     proczero->tf->epc = 0; // 程序计数器，从虚拟地址0开始执行initcode
@@ -275,13 +299,12 @@ int proc_fork() {
     np->tf->a0 = 0;
 
     // increment reference counts on open file descriptors.
-    /*
-    for(i = 0; i < NOFILE; i++)
-    if(p->ofile[i])
-        np->ofile[i] = filedup(p->ofile[i]);
-    np->cwd = idup(p->cwd);*/
-
-    // safestrcpy(np->name, p->name, sizeof(p->name));
+    
+    for(int i = 0; i < NOFILE; i++) {
+        if(p->ofile[i])
+            np->ofile[i] = file_dup(p->ofile[i]);
+    }
+    
 
     pid = np->pid;
 
@@ -386,20 +409,15 @@ void proc_exit(int exit_state)
     panic("init exiting");
 
     // Close all open files.
-    /*
+    
     // 与文件相关的部分，现在还没有用：/
     for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-        struct file *f = p->ofile[fd];
-        fileclose(f);
-        p->ofile[fd] = 0;
+        if(p->ofile[fd]){
+            struct File *f = p->ofile[fd];
+            file_close(f);
+            p->ofile[fd] = 0;
+        }
     }
-    }
-    begin_op();
-    iput(p->cwd);
-    end_op();
-    p->cwd = 0;
-    */
 
     spinlock_acquire(&wait_lock);
 

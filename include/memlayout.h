@@ -7,8 +7,8 @@
 #define UART_IRQ   10
 
 // virtio mmio interface
-#define VIRTIO0 0x10001000
-#define VIRTIO0_IRQ 1
+#define VIRTIO_BASE 0x10001000
+#define VIRTIO_BASE_IRQ 1
 
 // 内核基地址
 #define KERNEL_BASE 0x80000000ul

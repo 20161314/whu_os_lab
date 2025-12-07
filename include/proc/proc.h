@@ -7,6 +7,9 @@
 // 页表类型定义
 typedef uint64* pgtbl_t;
 
+// 文件描述符最大数量
+#define NOFILE 16
+
 // context 定义
 typedef struct context {
     uint64 ra; // 返回地址
@@ -110,7 +113,11 @@ typedef struct proc {
 
     uint64 kstack;           // 内核栈的虚拟地址
     context_t ctx;           // 内核态进程上下文
+
+    // 打开的文件描述符
+    struct File *ofile[NOFILE];
 } proc_t;
+
 
 
 void     proc_init();                                  // 进程模块初始化

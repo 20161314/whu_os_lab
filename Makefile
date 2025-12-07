@@ -2,6 +2,9 @@ TOOLCHAIN = riscv64-unknown-elf-
 
 GDB = gdb-multiarch
 
+FS_IMG = fs.img
+CPUNUM = 1
+
 CC = $(TOOLCHAIN)gcc
 LD = $(TOOLCHAIN)ld
 OBJCOPY = $(TOOLCHAIN)objcopy
@@ -32,6 +35,9 @@ DEPS = $(patsubst %.o, %.d, $(OBJECTS))
 TARGET_ELF = kernel.elf
 
 QEMU_OPTS = -machine virt -bios none -kernel $(TARGET_ELF) -nographic
+QEMU_OPTS += -m 128M -smp $(CPUNUM) -nographic
+QEMU_OPTS += -drive file=$(FS_IMG),if=none,format=raw,id=x0
+QEMU_OPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 .PHONY: all clean qemu qemu-gdb
 

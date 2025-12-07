@@ -109,14 +109,15 @@ uint64 uvm_heap_ungrow(pgtbl_t pgtbl, uint64 heap_top, uint32 len)
 
 // 用户态地址空间[src, src+len) 拷贝至 内核态地址空间[dst, dst+len)
 // 注意: src dst 不一定是 page-aligned
-void uvm_copyin(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
+int uvm_copyin(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
 {
     uint64 n, va0, pa0;
 
     while(len > 0){
         va0 = PG_ROUND_DOWN(src);
+        if ( va0 >= MAXVA ) return -1;
         pa0 = vm_getpa(pgtbl, va0);
-        if(pa0 == 0) return;
+        if(pa0 == 0) return -1;
         n = PGSIZE - (src - va0);
         if(n > len)
             n = len;
@@ -126,17 +127,20 @@ void uvm_copyin(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
         dst += n;
         src = va0 + PGSIZE;
     }
+
+    return 0;
 }
 
 // 内核态地址空间[src, src+len） 拷贝至 用户态地址空间[dst, dst+len)
-void uvm_copyout(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
+int uvm_copyout(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
 {
     uint64 n, va0, pa0;
 
     while(len > 0){
         va0 = PG_ROUND_DOWN(dst);
+        if ( va0 >= MAXVA ) return -1;
         pa0 = vm_getpa(pgtbl, va0);
-        if(pa0 == 0) return;
+        if(pa0 == 0) return -1;
         n = PGSIZE - (dst - va0);
         if(n > len)
             n = len;
@@ -146,6 +150,8 @@ void uvm_copyout(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len)
         src += n;
         dst = va0 + PGSIZE;
     }
+
+    return 0;
 }
 
 // 用户态字符串拷贝到内核态
