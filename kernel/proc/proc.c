@@ -268,7 +268,7 @@ void proc_make_first()
 
     // 设置用户态返回时的关键寄存器
     proczero->tf->epc = 0; // 程序计数器，从虚拟地址0开始执行initcode
-    proczero->tf->sp = PGSIZE; // 用户栈指针，设置在用户空间顶部
+    proczero->tf->sp = proczero->ustack_pages * PGSIZE; // 用户栈指针，设置在用户空间顶部
 
     // 修改其状态并释放该锁
     proczero->state = RUNNABLE;

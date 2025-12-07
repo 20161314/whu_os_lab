@@ -14,7 +14,7 @@ void main()
 {
     // clear_screen();
 
-    uart_init();
+    print_init();
     pmem_init();
     kvm_init();
     kvm_inithart();

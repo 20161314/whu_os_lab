@@ -1,8 +1,22 @@
 #include "dev/console.h"
+#include "lib/lock.h"
 
 // 静态辅助函数声明
 static void printint(long long xx, int base, int sign);
 static void printptr(unsigned long long x);
+
+// 防止占用的lock
+static struct {
+  struct spinlock print_lk;
+  int locking;
+} pr;
+
+void print_init(void)
+{
+  uart_init();
+  spinlock_init(&pr.print_lk, "pr");
+  pr.locking = 1;
+}
 
 // printint - 打印一个带符号的整数 (迭代实现，避免栈溢出)
 // xx: 要打印的数字
@@ -47,7 +61,11 @@ static void printptr(unsigned long long x) {
 void printf(const char *fmt, ...) {
     va_list ap;
     char *s;
-    int c;
+    int c, locking;
+
+    locking = pr.locking;
+    if(locking)
+        spinlock_acquire(&pr.print_lk);
 
     if (fmt == 0) {
         return; // 处理空指针
@@ -97,6 +115,9 @@ void printf(const char *fmt, ...) {
         }
     }
     va_end(ap);
+
+    if(locking)
+        spinlock_release(&pr.print_lk);
 }
 
 // 清屏函数实现

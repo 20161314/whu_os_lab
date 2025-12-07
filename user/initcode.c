@@ -239,7 +239,6 @@ int main() {
     
     sys_print( "=== 所有文件系统测试完成 ===\n\n" );
 
-    /*
     // 并发访问测试
     sys_print( "=== 并发访问测试 ===\n\n" );
     sys_print( "创建共享文件...\n" );
@@ -317,10 +316,8 @@ int main() {
         sys_close( fd );
     }
     sys_print( "并发访问测试完成\n\n" );
-    */
     
     // 崩溃恢复测试
-    /*
     sys_print( "=== 崩溃恢复测试 ===\n\n" );
     sys_print( "测试场景: 文件写入过程中的数据一致性\n" );
     
@@ -367,7 +364,6 @@ int main() {
         sys_close( fd );
     }
     sys_print( "崩溃恢复测试完成\n\n" );
-    */
     
     // 性能测试
     sys_print( "=== 性能测试 ===\n\n" );
