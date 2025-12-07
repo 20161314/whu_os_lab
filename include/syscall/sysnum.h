@@ -19,5 +19,8 @@
 #define SYS_unlink       15
 #define SYS_fstat        16
 #define SYS_dup          17
+#define SYS_setprior     18
+#define SYS_getprior     19
+#define SYS_yield        20
 
 #endif

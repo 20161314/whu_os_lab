@@ -91,6 +91,11 @@ enum proc_state {
     ZOMBIE,       // 濒临死亡
 };
 
+// 进程优先级范围设置：数值越大，优先级越高
+#define PRIORITY_MIN 0
+#define PRIORITY_MAX 15
+#define PRIORITY_DEFAULT 8
+
 // 进程定义
 typedef struct proc {
     spinlock_t lk;         // 自旋锁
@@ -116,6 +121,10 @@ typedef struct proc {
 
     // 打开的文件描述符
     struct File *ofile[NOFILE];
+
+    // 扩展：进程的优先级
+    int priority;          // 静态优先级，由用户或内核指定
+    int priority_boost;    // 动态加权值，用于简单老化避免饥饿
 } proc_t;
 
 
@@ -138,4 +147,7 @@ void     proc_setkilled(proc_t *p);                    // 将进程修改为已�
 bool     proc_killed(proc_t *proc);                    // 进程是否已经被杀死
 void     proc_sched();                                 // 进程切换到调度器
 void     proc_scheduler();                             // 调度器
+int      proc_set_priority(int priority);              // 设置任务优先级
+int      proc_get_priority();                          // 获取任务优先级
+
 #endif

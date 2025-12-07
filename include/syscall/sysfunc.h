@@ -21,5 +21,8 @@ uint64 sys_link();
 uint64 sys_unlink();
 uint64 sys_fstat();
 uint64 sys_dup();
+uint64 sys_setprior();
+uint64 sys_getprior();
+uint64 sys_yield();
 
 #endif

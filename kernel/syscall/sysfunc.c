@@ -121,3 +121,23 @@ uint64 sys_getpid()
 {
     return myproc()->pid;
 }
+
+uint64 sys_setprior()
+{
+    int priority;
+
+    arg_int( 0, &priority );
+
+    return (uint64) proc_set_priority( priority );
+}
+
+uint64 sys_getprior()
+{
+    return (uint64) proc_get_priority();
+}
+
+uint64 sys_yield()
+{
+    proc_yield();
+    return 0;
+}

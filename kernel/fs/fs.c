@@ -20,16 +20,16 @@ struct {
 void fs_init(int dev) {
     struct buf *bp;
     
-    printf("[fs_init] Starting, dev=%d\n", (int)dev);
+    //printf("[fs_init] Starting, dev=%d\n", (int)dev);
     bio_init();
-    printf("[fs_init] bio_init done\n");
+    //printf("[fs_init] bio_init done\n");
     
     // 读取超级块
     bp = bread(dev, 1);
-    printf("[fs_init] bread(dev=1) done\n");
+    //printf("[fs_init] bread(dev=1) done\n");
     memmove(&sb, bp->data, sizeof(sb));
     brelse(bp);
-    printf("[fs_init] superblock read, magic=0x%x\n", (int)sb.magic);
+    //printf("[fs_init] superblock read, magic=0x%x\n", (int)sb.magic);
     
     // 如果超级块魔数不匹配，创建新的文件系统
     if(sb.magic != FSMAGIC) {
@@ -55,17 +55,17 @@ void fs_init(int dev) {
         printf("  size=%d nblocks=%d ninodes=%d\n", 
                (int)sb.size, (int)sb.nblocks, (int)sb.ninodes);
         
-        printf("[fs_init] Calling log_init...\n");
+        //printf("[fs_init] Calling log_init...\n");
         log_init(dev, &sb);
-        printf("[fs_init] log_init done\n");
+        //printf("[fs_init] log_init done\n");
         
         // 初始化位图,标记所有系统块为已使用
         // 系统块: 引导块(0)、超级块(1)、日志(2-31)、inode(32-57)、位图(58)
-        printf("fs_init: marking system blocks 0-%d as used\n", (int)sb.bmapstart);
+        //printf("fs_init: marking system blocks 0-%d as used\n", (int)sb.bmapstart);
         
-        printf("[fs_init] Calling begin_op...\n");
+        //printf("[fs_init] Calling begin_op...\n");
         begin_op();
-        printf("[fs_init] begin_op done\n");
+        //printf("[fs_init] begin_op done\n");
         // 第一个位图块在 sb.bmapstart
         bp = bread(dev, sb.bmapstart);
         // 标记块 0 到 sb.bmapstart
@@ -95,7 +95,7 @@ void fs_init(int dev) {
         iunlockput(root);
         end_op();
         
-        printf("fs_init: root directory created\n");
+        //printf("fs_init: root directory created\n");
     } else {
         log_init(dev, &sb);
     }

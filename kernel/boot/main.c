@@ -25,13 +25,10 @@ void main()
     plic_inithart();
     
     // 初始化文件系统
-    printf("About to call fs_init...\n");
     fs_init(ROOTDEV);
-    printf("fs_init returned.\n");
     
     // 初始化文件表
     file_init();
-    printf("File system initialized.\n");
     printf("Hello OS\n");
 
     proc_make_first();

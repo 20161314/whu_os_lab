@@ -73,6 +73,8 @@ proc_t* proc_alloc(void)
 
 found:
   p->pid = allocpid();
+  p->priority = PRIORITY_DEFAULT;
+  p->priority_boost = 0;
   p->state = RUNNABLE;
 
   // Allocate a trapframe page.
@@ -116,6 +118,8 @@ void proc_free(proc_t *p)
     p->killed = 0;
     p->xstate = 0;
     p->state = UNUSED;
+    p->priority = PRIORITY_DEFAULT;
+    p->priority_boost = 0;
 }
 
 // 初始化进程数组
@@ -129,6 +133,9 @@ void proc_init(void)
         spinlock_init(&p->lk, "proc");
         p->state = UNUSED;
         p->kstack = KSTACK((int) (p - proc));
+
+        p->priority = PRIORITY_DEFAULT;
+        p->priority_boost = 0;
     }
 }
 
@@ -255,14 +262,6 @@ void proc_make_first()
         proczero->ustack_pages++;
     }
 
-    /*
-    assert(user_initcode_len <= PGSIZE, "proc_make_first: user_initcode too big\n");
-    char *mem = (char *)pmem_alloc();
-    memset(mem, 0, PGSIZE);
-    vm_mappages(proczero->pgtbl, 0, (uint64)mem, PGSIZE, PTE_W|PTE_R|PTE_X|PTE_U);
-    memmove(mem, user_initcode, user_initcode_len);
-    proczero->ustack_pages = 1;*/
-
     // 设置 heap_top
     proczero->heap_top = proczero->ustack_pages * PGSIZE;
 
@@ -312,6 +311,8 @@ int proc_fork() {
 
     spinlock_acquire(&wait_lock);
     np->parent = p;
+    np->priority = p->priority;
+    np->priority_boost = p->priority_boost;
     spinlock_release(&wait_lock);
 
     spinlock_acquire(&np->lk);
@@ -501,6 +502,33 @@ void proc_sched()
     mycpu()->origin = origin;
 }
 
+static inline int effective_priority( proc_t* p ) {
+    int eff = p->priority + p->priority_boost;
+    if ( eff > PRIORITY_MAX ) {
+        eff = PRIORITY_MAX;
+    }
+    return eff;
+}
+
+static void boost_waiting_processes( proc_t* last_run  ) {
+    for ( int idx = 0; idx < NPROC; idx++ ) {
+        proc_t* p = &proc[idx];
+
+        if ( p == last_run ) {
+            continue;
+        }
+
+        if ( p->state != RUNNABLE ) {
+            continue;
+        }
+
+        int max_boost = PRIORITY_MAX - p->priority;
+        if ( p->priority_boost < max_boost ) {
+            p->priority_boost++;
+        }
+    }
+}
+
 // 调度器
 void proc_scheduler()
 {
@@ -512,22 +540,47 @@ void proc_scheduler()
         // Avoid deadlock by ensuring that devices can interrupt.
         intr_on();
 
+        proc_t* chosen = 0;
+        int best_priority = PRIORITY_MIN - 1;
+
         for(p = proc; p < &proc[NPROC]; p++) {
             spinlock_acquire(&p->lk);
-            if(p->state == RUNNABLE) {
-                // Switch to chosen process.  It is the process's job
-                // to release its lock and then reacquire it
-                // before jumping back to us.
-                p->state = RUNNING;
-                c->proc = p;
-                swtch(&c->ctx, &p->ctx);
 
-                // Process is done running for now.
-                // It should have changed its p->state before coming back.
-                c->proc = 0;
+            if(p->state != RUNNABLE) {
+                spinlock_release(&p->lk);
+                continue;
+            }
+
+            int eff = effective_priority( p );
+            if ( !chosen || eff > best_priority || 
+                ( eff == best_priority && p->pid < chosen->pid ) ) {
+                chosen = p;
+                best_priority = eff;
             }
             spinlock_release(&p->lk);
         }
+
+        if ( chosen == 0 ) {
+            // 无可调用进程，等待中断唤醒
+            asm volatile( "wfi" );
+            continue;
+        }
+
+        spinlock_acquire(&chosen->lk);
+            
+        chosen->state = RUNNING;
+        chosen->priority_boost = 0;
+        c->proc = chosen;
+        swtch(&c->ctx, &chosen->ctx);
+
+        // 进程执行完成
+        proc_t* last_run = myproc();
+        c->proc = 0;
+
+        spinlock_release(&chosen->lk);
+
+        boost_waiting_processes(last_run);
+        
     }
 }
 
@@ -574,4 +627,25 @@ void proc_wakeup(void* sleep_space)
             spinlock_release(&p->lk);
         }
     }
+}
+
+int proc_set_priority(int priority)
+{
+    if ( priority < PRIORITY_MIN || priority > PRIORITY_MAX || myproc() == 0 ) {
+        return -1;
+    }
+
+    myproc()->priority = priority;
+    myproc()->priority_boost = 0;
+
+    return 0;
+}
+
+int proc_get_priority()
+{
+    if (myproc() == 0) {
+        return -1;
+    }
+
+    return myproc()->priority;
 }

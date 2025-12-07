@@ -49,7 +49,7 @@ void spinlock_acquire(spinlock_t *lk)
 {
     push_off(); // disable interrupts to avoid deadlock.
     if(spinlock_holding(lk))
-        panic("acquire");
+        panic("spinlock: acquire\n");
     
     // On RISC-V, sync_lock_test_and_set turns into an atomic swap:
     //   a5 = 1
@@ -72,7 +72,7 @@ void spinlock_acquire(spinlock_t *lk)
 void spinlock_release(spinlock_t *lk)
 {
     if(!spinlock_holding(lk))
-        panic("release");
+        panic("spinlock: release\n");
 
     lk->cpuid = -1;
 

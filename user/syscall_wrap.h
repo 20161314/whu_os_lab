@@ -90,3 +90,18 @@ int sys_dup(int fs)
 {
     return syscall(SYS_dup, fs);
 }
+
+int sys_setpriority(int prior)
+{
+    return syscall(SYS_setprior, prior);
+}
+
+int sys_getpriority(void)
+{
+    return syscall(SYS_getprior);
+}
+
+int sys_yield(void)
+{
+    return syscall(SYS_yield);
+}
