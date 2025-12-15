@@ -6,6 +6,8 @@
 #include "riscv.h"
 #include "memlayout.h"
 
+//该文件是kalloc.c
+
 // 物理页节点
 typedef struct page_node{
     struct page_node* next;
@@ -23,8 +25,8 @@ typedef struct alloc_region {
 static alloc_region_t free_region;
 
 // 分别对kernel和user下的可分配区域进行初始化操作
-void  pmem_init(void){
-    free_region.begin = (uint64)&ALLOC_BEGIN;
+void  pmem_init(void){ // kinit()
+    free_region.begin = (uint64)&ALLOC_BEGIN; 
     free_region.end = PHYSTOP;
 
     free_region.allocable = 0;
@@ -40,7 +42,7 @@ void  pmem_init(void){
     }
 }
 
-void* pmem_alloc(void){
+void* pmem_alloc(void){ // kalloc()
     spinlock_acquire(&free_region.lk); // 上锁
 
     if(free_region.allocable == 0){
@@ -60,7 +62,7 @@ void* pmem_alloc(void){
 }
 
 // 这个page是物理地址
-void  pmem_free(uint64 page){
+void  pmem_free(uint64 page){ //kfree()
 
     if((page % PGSIZE) != 0 || (char*)page < ALLOC_BEGIN || page >= PHYSTOP)
         panic("kfree");

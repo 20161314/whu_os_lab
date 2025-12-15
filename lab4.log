@@ -1,0 +1,181 @@
+✅ 时钟中断 - 定时器正常工作
+✅ 异常捕获 - 所有类型的异常都能正确识别
+✅ 异常处理 - 能够跳过错误指令继续执行
+✅ 系统调用 - ECALL 正确处理
+✅ 调试支持 - EBREAK 断点功能
+✅ 内存保护 - 页错误正确触发
+
+========================================
+        WHU Operating System Lab        
+========================================
+System initialized successfully
+Starting tests...
+
+========================================
+Testing Timer Interrupt
+========================================
+Initial interrupt count: 108
+Waiting for 5 timer interrupts...
+
+
+----------------------------------------
+Timer interrupt test completed!
+Total interrupts received: 138
+Total cycles elapsed: 1000000
+Average cycles per interrupt: 5025
+========================================
+
+========================================
+Starting Exception Handler Tests
+========================================
+
+=== Test 1: Divide by Zero Exception ===
+Attempting: 100 / 0
+Result of division by zero: -1 (expected -1 on RISC-V)
+Note: RISC-V does not trap on divide by zero
+Result of modulo by zero: 100 (expected dividend value: 100)
+
+=== Test 2: Illegal Instruction Exception ===
+Executing illegal instruction (0x00000000)...
+
+========================================
+Exception caught: Illegal instruction
+scause: 0x2
+sepc:   0x0ffffffff80001b92
+stval:  0x00
+========================================
+
+[TRAP] Illegal instruction at PC: 0x0ffffffff80001b92
+[TRAP] Instruction value (stval): 0x00
+[TRAP] Instruction at fault address: 0x0
+[TRAP] Skipping 2-byte illegal instruction
+[TRAP] Continuing execution after illegal instruction
+
+========================================
+Exception caught: Illegal instruction
+scause: 0x2
+sepc:   0x0ffffffff80001b94
+stval:  0x00
+========================================
+
+[TRAP] Illegal instruction at PC: 0x0ffffffff80001b94
+[TRAP] Instruction value (stval): 0x00
+[TRAP] Instruction at fault address: 0x10000
+[TRAP] Skipping 2-byte illegal instruction
+[TRAP] Continuing execution after illegal instruction
+Returned from illegal instruction handler
+
+=== Test 3: Misaligned Load/Store Exception ===
+Attempting misaligned 64-bit load at address: 0x0000000080010f99
+Misaligned load completed, value: 0x00
+Note: Some RISC-V implementations handle misaligned access in hardware
+
+=== Test 7: EBREAK (Breakpoint) ===
+Executing EBREAK instruction...
+This should trigger a Breakpoint exception (cause=3)
+PC before EBREAK: 0x0ffffffff80001dce
+Executing EBREAK now...
+
+========================================
+Exception caught: Breakpoint
+scause: 0x3
+sepc:   0x0ffffffff80001e08
+stval:  0x00
+========================================
+
+[TRAP] Breakpoint exception at PC: 0x0ffffffff80001e08
+[TRAP] Skipping 2-byte EBREAK instruction
+[TRAP] Returning from breakpoint handler
+PC after EBREAK: 0x0ffffffff80001e0a
+✓ EBREAK was properly handled by exception handler
+Successfully returned from EBREAK handler!
+EBREAK test completed
+
+=== Test 7b: Multiple EBREAK Tests ===
+
+EBREAK test iteration 1:
+
+========================================
+Exception caught: Breakpoint
+scause: 0x3
+sepc:   0x0ffffffff80001ed0
+stval:  0x00
+========================================
+
+[TRAP] Breakpoint exception at PC: 0x0ffffffff80001ed0
+[TRAP] Skipping 2-byte EBREAK instruction
+[TRAP] Returning from breakpoint handler
+  ✓ Iteration 1: EBREAK handled
+
+EBREAK test iteration 2:
+
+========================================
+Exception caught: Breakpoint
+scause: 0x3
+sepc:   0x0ffffffff80001ed0
+stval:  0x00
+========================================
+
+[TRAP] Breakpoint exception at PC: 0x0ffffffff80001ed0
+[TRAP] Skipping 2-byte EBREAK instruction
+[TRAP] Returning from breakpoint handler
+  ✓ Iteration 2: EBREAK handled
+
+EBREAK test iteration 3:
+
+========================================
+Exception caught: Breakpoint
+scause: 0x3
+sepc:   0x0ffffffff80001ed0
+stval:  0x00
+========================================
+
+[TRAP] Breakpoint exception at PC: 0x0ffffffff80001ed0
+[TRAP] Skipping 2-byte EBREAK instruction
+[TRAP] Returning from breakpoint handler
+  ✓ Iteration 3: EBREAK handled
+
+Multiple EBREAK tests completed
+
+=== Test 6: ECALL (Environment Call) ===
+Executing ECALL instruction...
+This should trigger an Environment Call exception (cause=8/9/11)
+
+========================================
+Exception caught: Environment call from S-mode
+scause: 0x9
+sepc:   0x0ffffffff80001d3c
+stval:  0x00
+========================================
+
+[TRAP] Environment call (ECALL) at PC: 0x0ffffffff80001d3c
+[TRAP] ECALL handled, returning
+✓ ECALL was properly handled
+Returned from ECALL
+
+========================================
+Exception tests completed
+========================================
+
+========================================
+Testing Invalid Memory Access
+WARNING: This will trigger a page fault!
+========================================
+
+=== Test 4: Invalid Memory Access Exception ===
+Attempting to read from NULL pointer...
+
+========================================
+Exception caught: Load page fault
+scause: 0xd
+sepc:   0x0ffffffff80001c5e
+stval:  0x00
+========================================
+
+[TRAP] Load page fault
+[TRAP] Fault address: 0x00
+[TRAP] PC at fault: 0x0ffffffff80001c5e
+[TRAP] Page fault cannot be recovered, panicking...
+Page fault
+
+

@@ -1,5 +1,6 @@
 #include "common.h"
 
+
 // 获取当前CPU的hartid
 static inline uint64 r_mhartid()
 {
@@ -319,7 +320,7 @@ w_pmpaddr0(uint64 x)
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
 // extract the three 9-bit page table indices from a virtual address.
-#define PXMASK          0x1FF // 9 bits
+#define PXMASK          0x1FF // 9 bits(512,定义一级页表包含的页表项数)
 #define PXSHIFT(level)  (PGSHIFT+(9*(level)))
 #define PX(va, level)   ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK)
 

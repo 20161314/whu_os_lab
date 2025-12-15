@@ -50,10 +50,18 @@ static char* exception_info[16] = {
 // 内核中断处理流程
 extern void kernel_vector();
 
+// 全局变量用于跟踪异常处理
+extern volatile int ebreak_handled;
+extern volatile int ecall_handled;
+
+// 中断计数器
+int interrupt_count = 0;
+
 // 初始化trap中全局共享的东西
 void trap_kernel_init()
 {
     timer_create();
+    interrupt_count = 0;  // 重置中断计数
 }
 
 // 各个核心trap初始化
@@ -88,8 +96,6 @@ void external_interrupt_handler()
         plic_complete(irq);
 }
 
-int interrupt_count = 0;
-
 // 时钟中断处理 (基于CLINT)
 void timer_interrupt_handler()
 {
@@ -104,6 +110,107 @@ void timer_interrupt_handler()
     w_sip(r_sip() & ~2);
 }
 
+// 处理 EBREAK 异常
+void handle_breakpoint(uint64 sepc)
+{
+    printf("\n[TRAP] Breakpoint exception at PC: 0x%x%x\n",
+           (uint32)(sepc >> 32), (uint32)sepc);
+    
+    // 设置全局标志
+    ebreak_handled = 1;
+    
+    // 需要跳过 EBREAK 指令
+    // RISC-V 中 EBREAK 可能是 2 字节(压缩)或 4 字节(标准)
+    uint16 *instr = (uint16 *)sepc;
+    
+    // 检查指令长度
+    // 如果最低两位是 11, 则是 32 位指令
+    if ((*instr & 0x3) == 0x3) {
+        // 32位指令
+        w_sepc(sepc + 4);
+        printf("[TRAP] Skipping 4-byte EBREAK instruction\n");
+    } else {
+        // 16位压缩指令
+        w_sepc(sepc + 2);
+        printf("[TRAP] Skipping 2-byte EBREAK instruction\n");
+    }
+    
+    printf("[TRAP] Returning from breakpoint handler\n");
+}
+
+// 处理 ECALL 异常
+void handle_ecall(uint64 sepc)
+{
+    printf("\n[TRAP] Environment call (ECALL) at PC: 0x%x%x\n",
+           (uint32)(sepc >> 32), (uint32)(sepc));
+    
+    // 设置全局标志
+    ecall_handled = 1;
+    
+    // 读取系统调用参数 (如果需要)
+    // a7 通常是系统调用号, a0-a5 是参数
+    // 这些值在 trapframe 中
+    
+    // ECALL 指令总是 4 字节
+    w_sepc(sepc + 4);
+    
+    printf("[TRAP] ECALL handled, returning\n");
+}
+
+// 处理非法指令异常
+void handle_illegal_instruction(uint64 sepc, uint64 stval)
+{
+    printf("\n[TRAP] Illegal instruction at PC: 0x%x%x\n",
+           (uint32)(sepc >> 32), (uint32)(sepc));
+    printf("[TRAP] Instruction value (stval): 0x%x%x\n",
+           (uint32)(stval >> 32), (uint32)stval);
+    
+    // 读取实际的指令
+    uint32 *instr_ptr = (uint32 *)sepc;
+    uint32 instr = *instr_ptr;
+    printf("[TRAP] Instruction at fault address: 0x%x\n", instr);
+    
+    // 检查指令长度并跳过
+    uint16 *instr16 = (uint16 *)sepc;
+    if ((*instr16 & 0x3) == 0x3) {
+        // 32位指令
+        w_sepc(sepc + 4);
+        printf("[TRAP] Skipping 4-byte illegal instruction\n");
+    } else {
+        // 16位压缩指令
+        w_sepc(sepc + 2);
+        printf("[TRAP] Skipping 2-byte illegal instruction\n");
+    }
+    
+    printf("[TRAP] Continuing execution after illegal instruction\n");
+}
+
+// 处理页错误
+void handle_page_fault(uint64 sepc, uint64 stval, int fault_type)
+{
+    const char *fault_names[] = {
+        "Instruction page fault",
+        "Load page fault", 
+        "Store/AMO page fault"
+    };
+    
+    int fault_index = (fault_type == 12) ? 0 : (fault_type == 13) ? 1 : 2;
+    
+    printf("\n[TRAP] %s\n", fault_names[fault_index]);
+    printf("[TRAP] Fault address: 0x%x%x\n",
+           (uint32)(stval >> 32), (uint32)stval);
+    printf("[TRAP] PC at fault: 0x%x%x\n",
+           (uint32)(sepc >> 32), (uint32)sepc);
+    
+    // 对于测试,我们可以选择:
+    // 1. panic (当前行为)
+    // 2. 返回特定值
+    // 3. 终止当前任务
+    
+    printf("[TRAP] Page fault cannot be recovered, panicking...\n");
+    panic("Page fault");
+}
+
 // 在kernel_vector()里面调用
 // 内核态trap处理的核心逻辑
 void trap_kernel_handler()
@@ -116,15 +223,14 @@ void trap_kernel_handler()
     // 确认trap来自S-mode且此时trap处于关闭状态
     assert(sstatus & SSTATUS_SPP, "trap_kernel_handler: not from s-mode");
     assert(intr_get() == 0, "trap_kernel_handler: interreput enabled");
-    
-    interrupt_count++;
 
     int trap_id = scause & 0xf; 
 
     // 中断异常处理核心逻辑
     if(scause & ((uint64)1 << 63)){
-        // 外部中断（含时钟等）
-        // 可用于调试的输出测试信息
+        // 中断处理
+        interrupt_count++;  // 只在中断时增加计数
+        
         switch(trap_id){
             case 1:
                 timer_interrupt_handler();
@@ -141,11 +247,45 @@ void trap_kernel_handler()
         }
     }
     else{
-        // 异常
-        // 可用于调试的输出测试信息
-        printf("activated exception: %s\n", exception_info[trap_id]);
-        printf("scause %p\n", scause);
-        printf("sepc=%p stval=%p\n", sepc, stval);
-        panic("kerneltrap: Exception\n");
+        // 异常处理
+        printf("\n========================================\n");
+        printf("Exception caught: %s\n", exception_info[trap_id]);
+        printf("scause: 0x%x\n", (uint32)scause);
+        printf("sepc:   0x%x%x\n", (uint32)(sepc >> 32), (uint32)sepc);
+        printf("stval:  0x%x%x\n", (uint32)(stval >> 32), (uint32)stval);
+        printf("========================================\n");
+        
+        switch(trap_id){
+            case 2:  // Illegal instruction
+                handle_illegal_instruction(sepc, stval);
+                break;
+                
+            case 3:  // Breakpoint (EBREAK)
+                handle_breakpoint(sepc);
+                break;
+                
+            case 8:  // ECALL from U-mode
+            case 9:  // ECALL from S-mode
+            case 11: // ECALL from M-mode
+                handle_ecall(sepc);
+                break;
+                
+            case 12: // Instruction page fault
+            case 13: // Load page fault
+            case 15: // Store/AMO page fault
+                handle_page_fault(sepc, stval, trap_id);
+                break;
+                
+            case 0:  // Instruction address misaligned
+            case 1:  // Instruction access fault
+            case 4:  // Load address misaligned
+            case 5:  // Load access fault
+            case 6:  // Store/AMO address misaligned
+            case 7:  // Store/AMO access fault
+            default:
+                printf("[TRAP] Unhandled exception, panicking...\n");
+                panic("kerneltrap: Exception");
+                break;
+        }
     }
 }
