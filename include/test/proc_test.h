@@ -1,0 +1,1 @@
+void run_proc_tests(void);

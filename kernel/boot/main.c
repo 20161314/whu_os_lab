@@ -7,6 +7,7 @@
 #include "mem/pmem.h"
 #include "mem/vmem.h"
 #include "trap/trap.h"
+#include "test/proc_test.h"
 
 void main()
 {
@@ -25,6 +26,8 @@ void main()
     proc_make_first(); 
 
     printf("Hello OS\n");
+
+    run_proc_tests();
 
     proc_scheduler();
 
