@@ -88,6 +88,8 @@ void external_interrupt_handler()
         plic_complete(irq);
 }
 
+int interrupt_count = 0;
+
 // 时钟中断处理 (基于CLINT)
 void timer_interrupt_handler()
 {
@@ -114,6 +116,8 @@ void trap_kernel_handler()
     // 确认trap来自S-mode且此时trap处于关闭状态
     assert(sstatus & SSTATUS_SPP, "trap_kernel_handler: not from s-mode");
     assert(intr_get() == 0, "trap_kernel_handler: interreput enabled");
+    
+    interrupt_count++;
 
     int trap_id = scause & 0xf; 
 
