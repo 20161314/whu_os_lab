@@ -6,16 +6,18 @@
 #include "proc/proc.h"
 #include "mem/pmem.h"
 #include "mem/vmem.h"
+#include "mem/shm.h"
 #include "trap/trap.h"
 
 void main()
 {
     // clear_screen();
 
-    uart_init();
+    print_init();
     pmem_init();
     kvm_init();
     kvm_inithart();
+    shm_init();
     proc_init();
     trap_kernel_init();
     trap_kernel_inithart();

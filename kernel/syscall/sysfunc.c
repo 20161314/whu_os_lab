@@ -1,6 +1,7 @@
 #include "proc/cpu.h"
 #include "mem/vmem.h"
 #include "mem/pmem.h"
+#include "mem/shm.h"
 #include "lib/str.h"
 #include "dev/console.h"
 #include "dev/timer.h"
@@ -59,23 +60,20 @@ uint64 sys_brk()
 }
 
 // 内存映射
-// uint64 start 起始地址 (如果为0则由内核自主选择一个合适的起点, 通常是顺序扫描找到一个够大的空闲空间)
-// uint32 len   范围(字节, 检查是否是page-aligned)
-// 成功返回映射空间的起始地址, 失败返回-1
 uint64 sys_mmap()
 {
-    // PS：不用实现，这里直接返回
-    return -1;
+    int key, size;
+    arg_int(0, &key);
+    arg_int(0, &size);
+    return shm_get(key, size);
 }
 
 // 取消内存映射
-// uint64 start 起始地址
-// uint32 len   范围(字节, 检查是否是page-aligned)
-// 成功返回0 失败返回-1
 uint64 sys_munmap()
 {
-    // PS：不用实现，这里直接返回
-    return -1;
+    int key;
+    arg_int(0, &key);
+    return shm_spinlock_release(key);
 }
 
 // 实现进程分支

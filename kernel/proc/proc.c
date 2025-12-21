@@ -232,19 +232,41 @@ void proc_make_first()
                 PTE_R | PTE_W | PTE_U);
     
     // data + code 映射
+
+    // 在这里尝试多page映射以摆脱限制...
+    proczero->ustack_pages = 0;
+    for(uint64 addr = 0; addr < user_initcode_len; addr += PGSIZE)
+    {
+        char *mem = (char *)pmem_alloc();
+        if (mem == NULL) {
+            // 处理分配失败
+            panic("proc_make_first: pmem_alloc failed");
+        }
+
+        memset(mem, 0, PGSIZE);
+
+        uint64 remaining = user_initcode_len - addr;
+        uint64 copy_size = (remaining > PGSIZE) ? PGSIZE : remaining;
+
+        vm_mappages(proczero->pgtbl, addr, (uint64)mem, PGSIZE, PTE_W|PTE_R|PTE_X|PTE_U);
+        memmove(mem, user_initcode + addr, copy_size);
+        proczero->ustack_pages++;
+    }
+
+    /*
     assert(user_initcode_len <= PGSIZE, "proc_make_first: user_initcode too big\n");
     char *mem = (char *)pmem_alloc();
     memset(mem, 0, PGSIZE);
     vm_mappages(proczero->pgtbl, 0, (uint64)mem, PGSIZE, PTE_W|PTE_R|PTE_X|PTE_U);
     memmove(mem, user_initcode, user_initcode_len);
-    proczero->ustack_pages = 1;
+    proczero->ustack_pages = 1;*/
 
     // 设置 heap_top
-    proczero->heap_top = PGSIZE;
+    proczero->heap_top = proczero->ustack_pages * PGSIZE;
 
     // 设置用户态返回时的关键寄存器
     proczero->tf->epc = 0; // 程序计数器，从虚拟地址0开始执行initcode
-    proczero->tf->sp = PGSIZE; // 用户栈指针，设置在用户空间顶部
+    proczero->tf->sp = proczero->ustack_pages * PGSIZE; // 用户栈指针，设置在用户空间顶部
 
     // 修改其状态并释放该锁
     proczero->state = RUNNABLE;
@@ -273,6 +295,8 @@ int proc_fork() {
 
     // Cause fork to return 0 in the child.
     np->tf->a0 = 0;
+
+    np->heap_top = p->heap_top;
 
     // increment reference counts on open file descriptors.
     /*

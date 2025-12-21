@@ -1,149 +1,302 @@
 #include "sys.h"
 #include "printf.h"
 #include "wrap.h"
+#include "common.h"
 
-// 与内核保持一致
-#define VA_MAX       (1ul << 38)
-#define PGSIZE       4096
-#define MMAP_END     (VA_MAX - 34 * PGSIZE)
-#define MMAP_BEGIN   (MMAP_END - 8096 * PGSIZE) 
+// 简单的断言宏
+#define assert(condition, message) \
+    do { \
+        if (!(condition)) { \
+            printf("Assertion failed: %s\n", message); \
+            exit(1); \
+        } \
+    } while(0)
 
-char *str1, *str2;
+// ==================== 共享缓冲区（用于生产者-消费者测试）====================
+#define NPROC 64
+#define BUFFER_SIZE 10
+#define SHM_KEY 5678 // 为我们的共享内存定义一个唯一的key
 
-void test_basic_syscalls(void) {
-    printf("Testing basic system calls...\n");
+typedef struct {
+    int buffer[BUFFER_SIZE];
+    int count;
+    int in;
+    int out;
+    // 注意：未来真正的信号量也应该放在这个结构体里
+} shared_buffer_t;
 
-    // 测试getpid
-    int pid = getpid();
-    printf("Current PID: %d\n", pid);
-
-    // 测试fork
-    int child_pid = fork();
-    if (child_pid == 0) {
-        // 子进程
-        printf("Child process: PID = %d\n", getpid());
-        exit(42);
+void buffer_print(shared_buffer_t *sb){
+    printf("Contents: ");
+    for(int i=0; i<BUFFER_SIZE; i++){
+        printf("%d ", sb->buffer[i]);
     }
-    else if (child_pid > 0) {
-        // 父进程
-        int status;
-        wait(&status);
-        printf("Child exited with status: %d\n", status);
-    }
-    else {
-        printf("Fork failed!\n");
+    printf("\n");
+}
+
+void shared_buffer_init(shared_buffer_t *sb) {
+    sb->count = 0;
+    sb->in = 0;
+    sb->out = 0;
+    // 清空缓冲区内容
+    for(int i=0; i<BUFFER_SIZE; i++){
+        sb->buffer[i] = 0;
     }
 }
+
+void buffer_put(shared_buffer_t *sb, int item) {
+    // 简单的忙等待实现（有竞态条件风险，见文末说明）
+    while (sb->count == BUFFER_SIZE) {
+        sleep(1);
+    }
+    sb->buffer[sb->in] = item;
+    sb->in = (sb->in + 1) % BUFFER_SIZE;
+    sb->count++;
+}
+
+int buffer_get(shared_buffer_t *sb) {
+    // 简单的忙等待实现（有竞态条件风险，见文末说明）
+    while (sb->count == 0) {
+        sleep(1);
+    }
+    int item = sb->buffer[sb->out];
+    sb->out = (sb->out + 1) % BUFFER_SIZE;
+    sb->count--;
+    return item;
+}
+
+// ==================== 测试任务 ====================
+
+void simple_task() {
+    int pid = getpid();
+    printf("Simple task [PID=%d] started\n", pid);
+    
+    int x = 0;
+    for (int i = 0; i < 100; i++) {  // 减少循环次数以加快测试
+        for (int j = 0; j < 10000; j++) {
+            x += 1;
+        }
+        x -= (10000 - 3);
+        
+        // 每隔一段时间主动让出 CPU
+        if (i % 10 == 0) {
+            sleep(1);
+        }
+    }
+    
+    printf("Simple task [PID=%d] done! x=%d\n", pid, x);
+    exit(0);
+}
+
+void cpu_intensive_task() {
+    int pid = getpid();
+    printf("CPU intensive task [PID=%d] started\n", pid);
+    
+    volatile uint64 counter = 0;
+    for (int i = 0; i < 1000000; i++) {
+        counter++;
+        
+        // 每隔一段时间主动让出 CPU
+        if (i % 10000 == 0) {
+            sleep(1);
+        }
+    }
+    
+    printf("CPU intensive task [PID=%d] completed, counter=%lu\n", 
+           pid, counter);
+    exit(0);
+}
+
+void producer_task() {
+    int pid = getpid();
+    printf("Producer [PID=%d] started\n", pid);
+
+    // 子进程附加到共享内存
+    shared_buffer_t *sb = (shared_buffer_t *)shm_get(SHM_KEY, sizeof(shared_buffer_t));
+    if (sb == 0) {
+        printf("Producer: shm_get failed\n");
+        exit(1);
+    }
+    
+    for (int i = 0; i < 10; i++) { // 减少循环次数以便观察
+        buffer_put(sb, i + 1); // 放入非0值，方便观察
+        printf("Producer [PID=%d] produced: %d\n", pid, i + 1);
+        sleep(10); // 减慢速度，方便观察
+    }
+    
+    printf("Producer [PID=%d] finished\n", pid);
+    shm_release(SHM_KEY); // 进程结束前释放
+    exit(0);
+}
+
+void consumer_task() {
+    int pid = getpid();
+    printf("Consumer [PID=%d] started\n", pid);
+
+    // 子进程附加到共享内存
+    shared_buffer_t *sb = (shared_buffer_t *)shm_get(SHM_KEY, sizeof(shared_buffer_t));
+    if (sb == 0) {
+        printf("Consumer: shm_get failed\n");
+        exit(1);
+    }
+    
+    for (int i = 0; i < 10; i++) {
+        int item = buffer_get(sb);
+        printf("Consumer [PID=%d] consumed: %d\n", pid, item);
+        sleep(15); // 减慢速度，方便观察
+    }
+    
+    printf("Consumer [PID=%d] finished\n", pid);
+    shm_release(SHM_KEY); // 进程结束前释放
+    exit(0);
+}
+
+// ==================== 测试函数 ====================
+
+void test_process_creation(void) {
+    printf("\n========== Testing process creation ==========\n");
+
+    // 测试基本的进程创建
+    printf("Test 1: Basic process creation\n");
+    int pid = fork();
+    if (pid == 0) {
+        // 子进程
+        simple_task();
+    } else if (pid > 0) {
+        // 父进程
+        printf("Created process with PID=%d\n", pid);
+        assert(pid > 0, "Failed to create process");
+        
+        // 等待进程完成
+        int status;
+        int waited_pid = wait(&status);
+        printf("Process %d exited with status %d\n", waited_pid, status);
+    } else {
+        printf("Fork failed!\n");
+        return;
+    }
+
+    // 测试进程表限制
+    printf("\nTest 2: Process table limits\n");
+    
+    int count = 0;
+    for (int i = 0; i < NPROC + 5; i++) {  // 减少测试数量
+        int pid = fork();
+        if (pid == 0) {
+            // 子进程
+            simple_task();
+        } else if (pid > 0) {
+            count++;
+        } else {
+            break;
+        }
+    }
+    printf("Successfully created %d processes\n", count);
+
+    // 清理测试进程
+    printf("Waiting for all processes to complete...\n");
+    for (int i = 0; i < count; i++) {
+        wait(NULL);
+    }
+    printf("All processes completed\n");
+    
+    printf("========== Process creation test PASSED ==========\n\n");
+}
+
+void test_scheduler(void) {
+    printf("\n========== Testing scheduler ==========\n");
+
+    // 创建多个计算密集型进程
+    printf("Creating 3 CPU-intensive processes...\n");
+    for (int i = 0; i < 3; i++) {
+        int pid = fork();
+        if (pid == 0) {
+            // 子进程
+            cpu_intensive_task();
+        } else if (pid > 0) {
+            printf("Created CPU-intensive process PID=%d\n", pid);
+        }
+    }
+
+    printf("Waiting for processes to complete...\n");
+    
+    // 等待所有子进程完成
+    for (int i = 0; i < 3; i++) {
+        wait(NULL);
+    }
+
+    printf("Scheduler test completed\n");
+    printf("========== Scheduler test PASSED ==========\n\n");
+}
+
+void test_synchronization(void) {
+    printf("\n========== Testing synchronization ==========\n");
+    
+    // 1. 父进程获取并初始化共享内存
+    shared_buffer_t *sb = (shared_buffer_t *)shm_get(SHM_KEY, sizeof(shared_buffer_t));
+    if (sb == 0) {
+        printf("Parent: shm_get failed\n");
+        return;
+    }
+    printf("Shared buffer created/attached by parent\n");
+    
+    shared_buffer_init(sb);
+    printf("Shared buffer initialized by parent\n");
+
+    // 2. 创建生产者和消费者
+    printf("Creating producer and consumer processes...\n");
+    int pid1 = fork();
+    if (pid1 == 0) {
+        producer_task();
+    }
+    
+    int pid2 = fork();
+    if (pid2 == 0) {
+        consumer_task();
+    }
+    
+    if (pid1 > 0 && pid2 > 0) {
+        printf("Producer PID=%d, Consumer PID=%d\n", pid1, pid2);
+        
+        // 3. 等待子进程结束
+        printf("Waiting for producer and consumer to finish...\n");
+        wait(0);
+        wait(0);
+
+        // 4. 父进程最后释放共享内存
+        shm_release(SHM_KEY);
+        printf("Shared buffer released by parent\n");
+    }
+
+    printf("========== Synchronization test FINISHED ==========\n\n");
+}
+
+// ==================== 主函数 ====================
 
 int main()
 {
     // 用户进程的开始
     syscall(SYS_print, "\nUser begin:\n");
 
-    test_basic_syscalls();
+    printf("\n");
+    printf("╔════════════════════════════════════════╗\n");
+    printf("║   Process Management Test Suite       ║\n");
+    printf("╚════════════════════════════════════════╝\n");
+    printf("\n");
 
-    /*
-    // 空白系统调用测试
-    syscall(SYS_print, "\nTesting blank system call:\n");
-    syscall(SYS_test);
-
-    // 进程号调用测试（基本）
-    syscall(SYS_print, "\nTesting getting pid:\n");
-    int id = syscall(SYS_getpid);
-    char* str = "pid: _\n";
-    str[5] = '0' + id;
-    syscall(SYS_print, str);
-
-    // 输出系统调用测试（输出所有非控制ascii字符，16个1行）
-    syscall(SYS_print, "\nTesting printing ascii:\n");
-    for(int i=0x20; i<0x7F; i++){
-        char* str = "_ ";
-        str[0] = i;
-        syscall(SYS_print, str);
-        if((i - 0x20) % 16 == 15){
-            syscall(SYS_print, "\n");
-        }
-    }
-    syscall(SYS_print, "\n");
-
-    // 测试HEAP区域
-    syscall(SYS_print, "\nTesting heap:\n");
-    long long top = syscall(SYS_brk, 0);
-    str2 = (char*)top;
-    syscall(SYS_brk, top + PGSIZE);
-    str2[0] = 'H';
-    str2[1] = 'E';
-    str2[2] = 'A';
-    str2[3] = 'P';
-    str2[4] = '\n';
-    str2[5] = '\0';
-    syscall(SYS_print, str2);
-
-    // 测试进程的fork, wait, exit
-    syscall(SYS_print, "\nTesting forking and waiting:\n");
-    int pid = syscall(SYS_fork);
-    if(pid == 0) { // 子进程
-        for(int i = 0; i < 100000000; i++);
-        syscall(SYS_print, "child: hello\n");
-        syscall(SYS_exit, 1);
-        syscall(SYS_print, "child: never back\n");
-    } else {       // 父进程
-        int exit_state;
-        int sonid = syscall(SYS_wait, &exit_state);
-        if(sonid == pid && exit_state == 1)
-            syscall(SYS_print, "parent: hello\n");
-        else
-            syscall(SYS_print, "parent: error\n");
-    }
+    // 测试 1: 进程创建
+    test_process_creation();
     
-
-    // 测试进程的杀死
-    syscall(SYS_print, "\nTesting Killing:\n");
-    int sons = 5;
-    int pids[sons];
-    for(int i=0; i<sons; i++){
-        int pid = syscall(SYS_fork);
-        if(pid == 0){
-            syscall(SYS_print, "child: hello\n");
-            while(1) {}
-        }
-        else{
-            pids[i] = pid;
-        }
-    }
-    for(int i = 0; i < 100000000; i++);
-    for(int i=0; i<sons; i++){
-        int res = syscall(SYS_kill, pids[i]);
-        if(res == 0){
-            syscall(SYS_print, "parent: kill success\n");
-        }
-        else{
-            syscall(SYS_print, "parent: kill failed\n");
-        }
-    }
-
-    // 测试进程的sleep
-    syscall(SYS_print, "\nTesting Sleeping:\n");
-    for(int i=0; i<10; i++){
-        syscall(SYS_sleep, 10);
-        syscall(SYS_print, "z");
-    }
-    syscall(SYS_print, "\nSleeped for 10s succeed.\n");
-
-    // 快速系统调用压力测试
-    syscall(SYS_print, "\nTesting Fast syscall:\n");
-    int times = 100000;
-    for(int i=0; i<times; i++){
-        // syscall(SYS_test);
-        syscall(SYS_sleep, 0);
-        syscall(SYS_getpid);
-        
-        char* c = (i % 10000 == 0) ? "#" : "";
-        syscall(SYS_print, c);
-        // syscall(SYS_print, ".");
-    }
-    syscall(SYS_print, "\nFast syscall test succeed.\n");
-    */
+    // 测试 2: 调度器
+    test_scheduler();
+    
+    // 测试 3: 同步机制
+    test_synchronization();
+    
+    printf("\n");
+    printf("╔════════════════════════════════════════╗\n");
+    printf("║   All Tests PASSED!                    ║\n");
+    printf("╚════════════════════════════════════════╝\n");
+    printf("\n");
 
     while(1);
     

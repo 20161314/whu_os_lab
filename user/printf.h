@@ -99,12 +99,39 @@ void printf(const char *fmt, ...) {
              break; // 防止格式字符串以 '%' 结尾
         }
 
+        // 处理长度修饰符 'l' (long)
+        int is_long = 0;
+        if (*p == 'l') {
+            is_long = 1;
+            p++;
+            if (*p == '\0') {
+                break; // 防止格式字符串以 '%l' 结尾
+            }
+        }
+
         switch (*p) {
             case 'd': // 整数
-                printint(va_arg(ap, int), 10, 1);
+                if (is_long) {
+                    printint(va_arg(ap, long), 10, 1);
+                } else {
+                    printint(va_arg(ap, int), 10, 1);
+                }
+                break;
+            case 'u': // 无符号整数
+                if (is_long) {
+                    // %lu: unsigned long
+                    printint(va_arg(ap, unsigned long), 10, 0);
+                } else {
+                    // %u: unsigned int
+                    printint(va_arg(ap, unsigned int), 10, 0);
+                }
                 break;
             case 'x': // 十六进制
-                printint(va_arg(ap, int), 16, 0);
+                if (is_long) {
+                    printint(va_arg(ap, long), 16, 0);
+                } else {
+                    printint(va_arg(ap, int), 16, 0);
+                }
                 break;
             case 'p': // 指针
                 printptr(va_arg(ap, unsigned long long));
@@ -126,6 +153,9 @@ void printf(const char *fmt, ...) {
                 break;
             default: // 未知格式，直接打印
                 printchar('%');
+                if (is_long) {
+                    printchar('l');
+                }
                 printchar(*p);
                 break;
         }
