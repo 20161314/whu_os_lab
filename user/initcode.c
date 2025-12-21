@@ -1,4 +1,6 @@
 #include "sys.h"
+#include "printf.h"
+#include "wrap.h"
 
 // 与内核保持一致
 #define VA_MAX       (1ul << 38)
@@ -8,11 +10,39 @@
 
 char *str1, *str2;
 
+void test_basic_syscalls(void) {
+    printf("Testing basic system calls...\n");
+
+    // 测试getpid
+    int pid = getpid();
+    printf("Current PID: %d\n", pid);
+
+    // 测试fork
+    int child_pid = fork();
+    if (child_pid == 0) {
+        // 子进程
+        printf("Child process: PID = %d\n", getpid());
+        exit(42);
+    }
+    else if (child_pid > 0) {
+        // 父进程
+        int status;
+        wait(&status);
+        printf("Child exited with status: %d\n", status);
+    }
+    else {
+        printf("Fork failed!\n");
+    }
+}
+
 int main()
 {
     // 用户进程的开始
-    syscall(SYS_print, "\nUser begin\n");
+    syscall(SYS_print, "\nUser begin:\n");
 
+    test_basic_syscalls();
+
+    /*
     // 空白系统调用测试
     syscall(SYS_print, "\nTesting blank system call:\n");
     syscall(SYS_test);
@@ -113,6 +143,7 @@ int main()
         // syscall(SYS_print, ".");
     }
     syscall(SYS_print, "\nFast syscall test succeed.\n");
+    */
 
     while(1);
     
