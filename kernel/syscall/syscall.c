@@ -29,6 +29,7 @@ static uint64 (*syscalls[])(void) = {
     [SYS_setprior]      sys_setprior,
     [SYS_getprior]      sys_getprior,
     [SYS_yield]         sys_yield,
+    [SYS_getticks]      sys_getticks,
 };
 
 // 定长数组的宏定义

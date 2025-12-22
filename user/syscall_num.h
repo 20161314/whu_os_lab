@@ -19,3 +19,4 @@
 #define SYS_setprior     18
 #define SYS_getprior     19
 #define SYS_yield        20
+#define SYS_getticks     21

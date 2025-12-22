@@ -24,5 +24,6 @@ uint64 sys_dup();
 uint64 sys_setprior();
 uint64 sys_getprior();
 uint64 sys_yield();
+uint64 sys_getticks();
 
 #endif

@@ -1,5 +1,8 @@
 #include "sys.h"
+#include "printf.h"
 #include "syscall_wrap.h"
+#include "common.h"
+#include "str.h"
 
 #define O_RDONLY  0x000
 #define O_WRONLY  0x001
@@ -8,42 +11,21 @@
 #define O_TRUNC   0x400
 #define O_APPEND  0x800
 
-void print_int( int n ) {
-    char buf[20];
-    int i = 0;
-    if ( n == 0 ) {
-        sys_print( "0" );
-        return;
-    }
-    if ( n < 0 ) {
-        sys_print( "-" );
-        n = -n;
-    }
-    while ( n > 0 ) {
-        buf[i++] = '0' + n % 10;
-        n /= 10;
-    }
-    while ( i > 0 ) {
-        char c[2] = { buf[--i], '\0' };
-        sys_print( c );
-    }
-}
-
-static void cleanup_test_artifacts(void) {
-    sys_print("\n清理测试生成的文件和目录...\n");
+void cleanup_test_artifacts(void) {
+    print("\n清理测试生成的文件和目录...\n");
 
     // 单个文件
-    sys_unlink("/test");
-    sys_unlink("/testfile");
-    sys_unlink("/shared_file");
-    sys_unlink("/crash_test");
-    sys_unlink("/large_file");
+    unlink("/test");
+    unlink("/testfile");
+    unlink("/shared_file");
+    unlink("/crash_test");
+    unlink("/large_file");
 
     // 目录内容和目录本身
-    sys_unlink("/testdir/file1");
-    sys_unlink("/testdir/file2");
-    sys_unlink("/testdir");
-    sys_unlink("/dir");
+    unlink("/testdir/file1");
+    unlink("/testdir/file2");
+    unlink("/testdir");
+    unlink("/dir");
 
     // 批量小文件 /small_XX
     char filename[16];
@@ -61,113 +43,125 @@ static void cleanup_test_artifacts(void) {
         }
         filename[pos++] = '0' + ( i % 10 );
         filename[pos] = '\0';
-        sys_unlink( filename );
+        unlink( filename );
     }
 }
 
-static void priority_scheduler_test( void ) {
-    sys_print( "=== 优先级时间片轮转测试 ===\n\n" );
+void test_basic_syscalls(void) {
+    printf("\n=== Testing basic system calls... ===\n");
 
-    int base_priority = sys_getpriority();
-    sys_print( "父进程初始优先级: " );
-    print_int( base_priority );
-    sys_print( "\n" );
+    // 测试getpid
+    int pid = getpid();
+    printf("Current PID: %d\n", pid);
 
-    const int child_priority[] = { 7, 7, 7, 11, 5 };
-    const char child_tag[] = { 'A', 'B', 'C', 'D', 'E' };
-    const int child_count = sizeof( child_priority ) / sizeof( child_priority[0] );
-    const int slice_rounds = 4;
-
-    sys_print( "说明: 子进程 A/B/C 具有相同优先级，用于观察时间片轮转效果；D/E 分别展示高/低优先级穿插。\n\n" );
-
-    for ( int i = 0; i < child_count; i++ ) {
-        int desired = child_priority[i];
-        char tag_buf[2] = { child_tag[i], '\0' };
-
-        sys_print( "准备创建子进程 " );
-        sys_print( tag_buf );
-        sys_print( ", 目标优先级=" );
-        print_int( desired );
-        sys_print( "\n" );
-
-        // 让新建的子进程继承目标优先级
-        sys_setpriority( desired );
-        int pid = sys_fork();
-
-        if ( pid < 0 ) {
-            sys_print( "fork 失败，终止优先级测试\n" );
-            sys_setpriority( base_priority );
-            return;
-        }
-
-        if ( pid == 0 ) {
-            sys_print( "子进程 " );
-            sys_print( tag_buf );
-            sys_print( " 启动, 优先级=" );
-            print_int( desired );
-            sys_print( "\n" );
-
-            for ( int round = 0; round < slice_rounds; round++ ) {
-                sys_print( "  [" );
-                sys_print( tag_buf );
-                sys_print( " | 优先级=" );
-                print_int( desired );
-                sys_print( "] 第 " );
-                print_int( round );
-                sys_print( " 轮 -> 运行\n" );
-
-                for ( volatile int spin = 0; spin < 150000; spin++ ) {
-                    // 忙等模拟工作负载
-                }
-
-                sys_print( "  [" );
-                sys_print( tag_buf );
-                sys_print( "] 让出 CPU\n" );
-                sys_yield();
-            }
-
-            sys_print( "子进程 " );
-            sys_print( tag_buf );
-            sys_print( " 完成所有轮次\n" );
-            sys_exit( 0 );
-        }
-
-        // 父进程恢复自身优先级并记录信息
-        sys_setpriority( base_priority );
-        sys_print( "父进程创建了 PID=" );
-        print_int( pid );
-        sys_print( " 的子进程 " );
-        sys_print( tag_buf );
-        sys_print( "\n" );
+    // 测试fork
+    int child_pid = fork();
+    if (child_pid == 0) {
+        // 子进程
+        printf("Child process: PID = %d\n", getpid());
+        exit(42);
+    }
+    else if (child_pid > 0) {
+        // 父进程
+        int status;
+        wait(&status);
+        printf("Child exited with status: %d\n", status);
+    }
+    else {
+        printf("Fork failed!\n");
     }
 
-    sys_print( "\n父进程等待所有子进程轮流运行...\n" );
-    for ( int i = 0; i < child_count; i++ ) {
-        int status = 0;
-        int waited = sys_wait( &status );
-        sys_print( "回收子进程 PID=" );
-        print_int( waited );
-        sys_print( ", 状态=" );
-        print_int( status );
-        sys_print( "\n" );
-    }
-
-    sys_print( "父进程优先级仍为: " );
-    print_int( sys_getpriority() );
-    sys_print( "\n" );
-    sys_print( "=== 优先级时间片轮转测试结束 ===\n\n" );
+    printf("=== Testing finished. ===\n");
 }
+
+void test_parameter_passing(void) {
+    printf("\n=== Testing parameter passing... ===\n");
+
+    // 测试不同类型参数的传递
+    char buffer[] = "Hello, World!";
+    int fd = open("/test", O_CREATE | O_RDWR);
+
+    if (fd >= 0) {
+        int bytes_written = write(fd, buffer, strlen(buffer));
+        printf("Wrote %d bytes\n", bytes_written);
+        close(fd);
+    }
+    else{
+        printf("file write failed");
+    }
+
+    // 测试边界情况
+    printf("Testing edge cases:\n");
+    write(-1, buffer, 10);      // 无效文件描述符
+    write(fd, NULL, 10);        // 空指针
+    write(fd, buffer, -1);      // 负数长度
+    printf("No error. It's OK.\n");
+
+    printf("=== Testing parameter finished. ===\n");
+}
+
+void test_security(void) {
+    printf("\n=== Testing security ===\n");
+    // 测试无效指针访问
+    char *invalid_ptr = (char*)0x1000000; // 可能无效的地址
+    int result = write(1, invalid_ptr, 10);
+    printf("Invalid pointer write result: %d\n", result);
+
+    // 测试缓冲区边界
+    char small_buf[4];
+    result = read(0, small_buf, 1000); // 尝试读取超过缓冲区大小
+    printf("Invalid read result: %d\n", result);
+
+    // 测试权限检查
+    char* mes = "Hello world, today is as good as before.";
+    int fd1 = open("/test2", O_CREATE | O_RDWR);
+    result = write(fd1, mes, strlen(mes));
+    printf("fd1 result(RDWR): %d\n", result);
+
+    int fd2 = open("/test2", O_RDONLY);
+    result = write(fd2, mes, strlen(mes));
+    printf("fd2 result(RDONLY): %d\n", result);
+
+    printf("=== Testing security end===\n");
+}
+
+void test_syscall_performance(void) {
+    uint64 times = 1e6;
+
+    printf("\n=== Testing syscall performance===\n");
+    uint64 start_time = get_time();
+
+    // 大量系统调用测试
+    for (uint64 i = 0; i < times; i++) {
+        getpid(); // 简单的系统调用
+    }
+
+    uint64 end_time = get_time();
+    printf("%lu getpid() calls took %lu cycles\n", times, end_time - start_time);
+
+    printf("=== Testing syscall performance ended===\n");
+}
+
+
 
 int main() {
 
-    sys_print( "=== main() ===\n\n" );
+    printf("\n=== Hello there, user begin ===\n");
 
     cleanup_test_artifacts();
 
-    priority_scheduler_test();
+    test_basic_syscalls();
 
-    // 由于当前用户 main 是寄生在 init_proc 中的，所以不可以退出
-    while ( 1 );
+    test_parameter_passing();
+
+    test_security();
+
+    test_syscall_performance();
+
+
+    printf("\n=== Congrats! All test passed! ===\n");
+
+    while (1);
 
     return 0;
 }
