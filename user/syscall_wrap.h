@@ -90,3 +90,11 @@ int sys_dup(int fs)
 {
     return syscall(SYS_dup, fs);
 }
+
+void print_proc_table(){
+    syscall(SYS_proc_table);
+}
+
+void clear(){
+    syscall(SYS_clear);
+}

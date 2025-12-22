@@ -138,4 +138,5 @@ void     proc_setkilled(proc_t *p);                    // 将进程修改为已�
 bool     proc_killed(proc_t *proc);                    // 进程是否已经被杀死
 void     proc_sched();                                 // 进程切换到调度器
 void     proc_scheduler();                             // 调度器
+void     proc_print_table();                           // 进程信息打印（整个进程）
 #endif

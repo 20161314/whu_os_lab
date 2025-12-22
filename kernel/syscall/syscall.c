@@ -26,6 +26,8 @@ static uint64 (*syscalls[])(void) = {
     [SYS_unlink]        sys_unlink,
     [SYS_fstat]         sys_fstat,
     [SYS_dup]           sys_dup,
+    [SYS_proc_table]    sys_proc_table,
+    [SYS_clear]         sys_clear,
 };
 
 // 定长数组的宏定义

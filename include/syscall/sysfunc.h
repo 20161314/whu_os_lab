@@ -21,5 +21,7 @@ uint64 sys_link();
 uint64 sys_unlink();
 uint64 sys_fstat();
 uint64 sys_dup();
+uint64 sys_proc_table();
+uint64 sys_clear();
 
 #endif

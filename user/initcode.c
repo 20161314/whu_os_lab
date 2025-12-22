@@ -65,6 +65,53 @@ static void cleanup_test_artifacts(void) {
     }
 }
 
+int slow_times = 5;
+
+void task(){
+    for(int i=0; i<10; i++){
+        for(int j=0; j<150000; j++){};
+
+        sys_sleep(sys_getpid() * slow_times);
+
+        clear();
+        print_proc_table();
+    }
+    sys_print("Son: done.\n");
+}
+
+void test_proc_table(){
+    int sons = 10;
+    
+    for(int i=0; i<sons; i++){
+        int pid = sys_fork();
+        if(pid == 0){
+            sys_print("Son ");
+            print_int(sys_getpid());
+            sys_print(" created.\n");
+
+            task();
+            sys_exit(0);
+        }
+    }
+
+    for(int i=0; i<10; i++){
+        clear();
+        print_proc_table();
+        sys_sleep(1 * slow_times);
+    }
+
+    for(int i=0; i<sons; i++){
+        sys_wait(0);
+    }
+
+    clear();
+    print_proc_table();
+    
+    sys_print("All finished.\n");
+    sys_sleep(30);
+    clear();
+}
+
 int main() {
     // 测试以下套包哪里来的（汗
     sys_print( "line 1\n");
@@ -567,6 +614,9 @@ int main() {
     sys_print("这证明了日志系统正确实现了崩溃恢复\n\n");
 
     sys_print( "--- main() 测试完成 ---\n" );
+
+
+    test_proc_table();
 
     // 由于当前用户 main 是寄生在 init_proc 中的，所以不可以退出
     while ( 1 );

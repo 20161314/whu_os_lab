@@ -575,3 +575,48 @@ void proc_wakeup(void* sleep_space)
         }
     }
 }
+
+// 用于将进程状态枚举转换为可读字符串的辅助数组
+static const char *states[] = {
+  [UNUSED]   "unused  ",
+  [SLEEPING] "sleeping",
+  [RUNNABLE] "runnable",
+  [RUNNING]  "running ",
+  [ZOMBIE]   "zombie  "
+};
+
+/**
+* @brief 打印系统中所有进程的信息，类似于ps命令。
+* 
+* 遍历全局进程表，对于每个非UNSUED状态的进程，
+* 获取其自旋锁后打印其PID, 状态, 父进程PID, 名称等信息。
+* 这是一个内核函数，将被包装成系统调用。
+*/
+void proc_print_table()
+{
+  proc_t *p;
+
+    // 打印表头
+    printf("PID\tSTATE\t\tPPID\n");
+    printf("------------------------------------\n");
+
+    // 遍历进程表
+    for (p = proc; p < &proc[NPROC]; p++) {
+        // 跳过未使用的进程槽位
+        if (p->state == UNUSED) {
+            continue;
+        }
+
+        // 为了安全地读取进程信息，必须持有该进程的锁
+        spinlock_acquire(&p->lk);
+
+        int ppid = p->parent ? p->parent->pid : 0; // 获取父进程PID，根进程的父进程PID为0
+
+        // 打印进程信息
+        // %-10s 表示左对齐，宽度为10的字符串
+        printf("%d\t%s\t%d\n", p->pid, states[p->state], ppid);
+        
+        // 读取完毕，释放锁
+        spinlock_release(&p->lk);
+    }
+}

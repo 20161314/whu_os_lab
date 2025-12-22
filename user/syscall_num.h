@@ -16,3 +16,5 @@
 #define SYS_unlink       15
 #define SYS_fstat        16
 #define SYS_dup          17
+#define SYS_proc_table   18
+#define SYS_clear        19

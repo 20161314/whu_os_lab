@@ -127,7 +127,7 @@ void clear_screen(void) {
     uart_puts("\033[2J"); 
     // [H 表示将光标移动到左上角
     uart_puts("\033[H");
-    printf("Screen cleared!\n");
+    // printf("Screen cleared!\n");
 }
 
 void panic(const char* warning){

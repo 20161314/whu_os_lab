@@ -121,3 +121,13 @@ uint64 sys_getpid()
 {
     return myproc()->pid;
 }
+
+uint64 sys_proc_table(){
+    proc_print_table();
+    return 0;
+}
+
+uint64 sys_clear(){
+    clear_screen();
+    return 0;
+}
