@@ -114,6 +114,33 @@ void priority_scheduler_test( void ) {
     printf( "=== 优先级时间片轮转测试结束 ===\n\n" );
 }
 
+void print_test(){
+    printf("Testing integer: %d\n", 12345);
+    printf("Testing negative integer: %d\n", -54321);
+    printf("Testing zero: %d\n", 0);
+    printf("Testing hex: 0x%x\n", 0xABCD);
+    printf("Testing string: %s\n", "Hello, layered OS!");
+    printf("Testing char: %c\n", 'Z');
+    printf("Testing percent: %%\n");
+
+    printf("Testing big numbers: %ul\n", 123456789);
+
+    int a = 114514;
+    int *ptr = &a;
+
+    printf("Testing pointer address: %p\n", ptr);
+    printf("Testing NULL pointer: %p\n", (void *)0);
+}
+
+void timer_test(){
+    int start = get_time();
+    printf("Start time(Before sleep): %d\n", start);
+    sleep(114);
+    int end = get_time();
+    printf("End time(After sleep): %d\n", end);
+    printf("Time eplased: %d\n", end - start);
+}
+
 int main() {
 
     printf( "=== main() ===\n\n" );
@@ -121,6 +148,12 @@ int main() {
     // cleanup_test_artifacts();
 
     priority_scheduler_test();
+
+    print_test();
+
+    print("\n");
+
+    timer_test();
 
     // 由于当前用户 main 是寄生在 init_proc 中的，所以不可以退出
     while ( 1 );
