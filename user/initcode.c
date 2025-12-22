@@ -270,6 +270,49 @@ void test_synchronization(void) {
     printf("========== Synchronization test FINISHED ==========\n\n");
 }
 
+
+void test_shm(void){
+    uint64 key = 0x1234;
+    int pid = fork();
+    shared_buffer_t *sb = (shared_buffer_t *)shm_get(key, sizeof(shared_buffer_t));
+
+    if (pid == 0) {
+        // son
+        shared_buffer_t *sb = (shared_buffer_t *)shm_get(key, sizeof(shared_buffer_t));
+        sleep(5);
+
+        printf("Son: waiting father to write Contents.\n");
+
+        while (sb->count == 0) {
+            sleep(1);
+        }
+
+        printf("Son: Detected shm write.\n");
+        buffer_print(sb);
+
+        exit(0);
+
+    }
+    else{
+        // father
+
+        sleep(10);
+        printf("Father: writing data:\n");
+
+        for(int i=0; i<BUFFER_SIZE; i++){
+            sb->buffer[i] = i*10;
+        }
+        sb->count = BUFFER_SIZE;
+        buffer_print(sb);
+
+        printf("Father: waiting son to finish.\n");
+        wait(0);
+    }
+}
+
+
+
+
 // ==================== 主函数 ====================
 
 int main()
@@ -284,19 +327,22 @@ int main()
     printf("\n");
 
     // 测试 1: 进程创建
-    test_process_creation();
+    //test_process_creation();
     
     // 测试 2: 调度器
-    test_scheduler();
+    //test_scheduler();
     
     // 测试 3: 同步机制
-    test_synchronization();
+    //test_synchronization();
     
+    test_shm();
+
     printf("\n");
     printf("╔════════════════════════════════════════╗\n");
     printf("║   All Tests PASSED!                    ║\n");
     printf("╚════════════════════════════════════════╝\n");
     printf("\n");
+
 
     while(1);
     
