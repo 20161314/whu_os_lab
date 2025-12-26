@@ -44,5 +44,5 @@ make qemu-gdb
 本项目还提供了一个集成的调试命令，它会自动启动 tmux 并为您安排好 QEMU 和 GDB 的窗口：
 
 ```bash
-make qemu-gdb
+make qemu-debug
 ```
